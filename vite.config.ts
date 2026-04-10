@@ -3,5 +3,5 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/radar-7-lenses/',
+  base: process.env.GITHUB_PAGES ? '/RADAR-7-lenses/' : '/',
 })
