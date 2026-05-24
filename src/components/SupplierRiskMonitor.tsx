@@ -3,10 +3,35 @@ import React, { useState } from 'react';
 // ── Types ─────────────────────────────────────────────────────────────
 type RiskLevel = 'CRITICAL' | 'MODERATE' | 'LOW';
 type RiskCategory = 'Geopolitical' | 'Cyber' | 'ESG' | 'Financial';
+type Trend = 'WORSENING' | 'STABLE' | 'IMPROVING';
+type Horizon = 'IMMEDIATE' | '30 DAYS' | 'STRATEGIC';
+type Effort = 'LOW' | 'MEDIUM' | 'HIGH';
+type Impact = 'LOW' | 'MEDIUM' | 'HIGH';
 
 interface RiskDimension {
   category: RiskCategory;
   score: number;
+  headline: string;
+  detail: string;
+  clockLink?: string;
+}
+
+interface MitigationAction {
+  horizon: Horizon;
+  title: string;
+  detail: string;
+  owner: string;
+  timeline: string;
+  effort: Effort;
+  impact: Impact;
+}
+
+interface Alternative {
+  name: string;
+  country: string;
+  leadTime: string;
+  capacity: string;
+  riskScore: number;
 }
 
 interface Supplier {
@@ -18,7 +43,20 @@ interface Supplier {
   tier: 1 | 2;
   sector: string;
   overallScore: number;
+  trend: Trend;
+  revenueAtRiskLow: number;
+  revenueAtRiskHigh: number;
+  revenueBasis: string;
+  daysToImpact: number;
+  singleSource: boolean;
+  spendExposurePct: number;
+  costToMitigate: number;
+  costOfDisruption: number;
+  substitutability: number;
+  doNothingOutcome: string;
   dimensions: RiskDimension[];
+  actions: MitigationAction[];
+  alternatives: Alternative[];
   lastUpdated: string;
 }
 
@@ -60,29 +98,31 @@ function riskProfile(score: number): {
 }
 
 const CAT_STYLE: Record<RiskCategory, { color: string; bg: string; border: string }> = {
-  Geopolitical: {
-    color: '#C4B5FD',
-    bg: 'rgba(139,92,246,0.15)',
-    border: 'rgba(139,92,246,0.4)',
-  },
-  Cyber: {
-    color: '#6EE7B7',
-    bg: 'rgba(16,185,129,0.15)',
-    border: 'rgba(16,185,129,0.4)',
-  },
-  ESG: {
-    color: '#FDE047',
-    bg: 'rgba(234,179,8,0.15)',
-    border: 'rgba(234,179,8,0.4)',
-  },
-  Financial: {
-    color: '#60A5FA',
-    bg: 'rgba(59,130,246,0.15)',
-    border: 'rgba(59,130,246,0.4)',
-  },
+  Geopolitical: { color: '#C4B5FD', bg: 'rgba(139,92,246,0.15)', border: 'rgba(139,92,246,0.4)' },
+  Cyber: { color: '#6EE7B7', bg: 'rgba(16,185,129,0.15)', border: 'rgba(16,185,129,0.4)' },
+  ESG: { color: '#FDE047', bg: 'rgba(234,179,8,0.15)', border: 'rgba(234,179,8,0.4)' },
+  Financial: { color: '#60A5FA', bg: 'rgba(59,130,246,0.15)', border: 'rgba(59,130,246,0.4)' },
 };
 
-// ── Hardcoded Data ────────────────────────────────────────────────────
+const TREND_STYLE: Record<Trend, { color: string; arrow: string; bg: string; border: string }> = {
+  WORSENING: { color: '#F87171', arrow: '▲', bg: 'rgba(220,38,38,0.12)', border: 'rgba(220,38,38,0.35)' },
+  STABLE: { color: '#94A3B8', arrow: '▬', bg: 'rgba(100,116,139,0.12)', border: 'rgba(100,116,139,0.3)' },
+  IMPROVING: { color: '#4ADE80', arrow: '▼', bg: 'rgba(22,163,74,0.12)', border: 'rgba(22,163,74,0.35)' },
+};
+
+const HORIZON_STYLE: Record<Horizon, { color: string; bg: string; border: string }> = {
+  IMMEDIATE: { color: '#F87171', bg: 'rgba(220,38,38,0.12)', border: 'rgba(220,38,38,0.35)' },
+  '30 DAYS': { color: '#FBBF24', bg: 'rgba(217,119,6,0.12)', border: 'rgba(217,119,6,0.35)' },
+  STRATEGIC: { color: '#60A5FA', bg: 'rgba(59,130,246,0.12)', border: 'rgba(59,130,246,0.35)' },
+};
+
+function effortImpactStyle(level: Effort | Impact) {
+  if (level === 'LOW') return { color: '#4ADE80', bg: 'rgba(22,163,74,0.12)', border: 'rgba(22,163,74,0.3)' };
+  if (level === 'MEDIUM') return { color: '#FBBF24', bg: 'rgba(217,119,6,0.12)', border: 'rgba(217,119,6,0.3)' };
+  return { color: '#F87171', bg: 'rgba(220,38,38,0.12)', border: 'rgba(220,38,38,0.3)' };
+}
+
+// ── Data ──────────────────────────────────────────────────────────────
 const SUPPLIERS: Supplier[] = [
   {
     id: 'winn',
@@ -93,12 +133,34 @@ const SUPPLIERS: Supplier[] = [
     tier: 1,
     sector: 'PCB / Semiconductor',
     overallScore: 87,
+    trend: 'WORSENING',
+    revenueAtRiskLow: 42,
+    revenueAtRiskHigh: 68,
+    revenueBasis: 'Based on FY25 BOM share × 8-week disruption scenario',
+    daysToImpact: 14,
+    singleSource: true,
+    spendExposurePct: 34,
+    costToMitigate: 3.2,
+    costOfDisruption: 55,
+    substitutability: 18,
+    doNothingOutcome: 'Production halt at Plant 3 within 14 days. ~$55M revenue loss, 4 OEM customers de-prioritised, and contractual penalty exposure ~$8M. Recovery 90–120 days.',
     lastUpdated: 'Apr 18, 2026',
     dimensions: [
-      { category: 'Geopolitical', score: 92 },
-      { category: 'Cyber', score: 74 },
-      { category: 'ESG', score: 40 },
-      { category: 'Financial', score: 35 },
+      { category: 'Geopolitical', score: 92, headline: 'Taiwan Strait tension at 12-month high', detail: 'PLA exercise schedule overlapping Q3 shipping window. Port of Keelung reporting 18% slowdown. Insurer Lloyd\'s raised hull rates 22%.', clockLink: 'Clock 2 · Geopolitical' },
+      { category: 'Cyber', score: 74, headline: 'Active intrusion on parent network', detail: 'CISA flagged TTP overlap with Volt Typhoon. Winn IT segmented OT 6 days ago; recovery unverified.', clockLink: 'Clock 4 · Cyber' },
+      { category: 'ESG', score: 40, headline: 'Water stress + labour audit gaps', detail: 'Hsinchu drought stage 2. Last SA8000 audit overdue 5 months.' },
+      { category: 'Financial', score: 35, headline: 'Margin compression, liquidity adequate', detail: 'Operating margin down 280 bps YoY. Cash runway ~11 months. No covenant breach.' },
+    ],
+    actions: [
+      { horizon: 'IMMEDIATE', title: 'Activate safety stock + pull-forward 2 weeks', detail: 'Release reserved inventory at DC-Chicago. Pull next 2 PO releases by 14 days.', owner: 'S. Patel · Ops', timeline: '72 hours', effort: 'LOW', impact: 'HIGH' },
+      { horizon: 'IMMEDIATE', title: 'Dual-source qualification on SKU-441 / 442', detail: 'Engage Corevo and Amphenol for emergency RFQ. Waive standard sample cycle.', owner: 'M. Chen · Sourcing', timeline: '5 days', effort: 'MEDIUM', impact: 'HIGH' },
+      { horizon: '30 DAYS', title: 'Re-route logistics via Kaohsiung + air freight buffer', detail: 'Shift 40% of shipments off Keelung. Pre-book air capacity for 12 weeks.', owner: 'R. Iyer · Logistics', timeline: '30 days', effort: 'MEDIUM', impact: 'MEDIUM' },
+      { horizon: 'STRATEGIC', title: 'Mexico nearshore qualification (TTM + Amphenol)', detail: 'Dual-track NPI with TTM Munich + Amphenol Monterrey. Target 25% volume relocation by FY27.', owner: 'L. Garcia · Strategy', timeline: '9–12 months', effort: 'HIGH', impact: 'HIGH' },
+    ],
+    alternatives: [
+      { name: 'Amphenol', country: 'Mexico', leadTime: '10 wks', capacity: 'Partial', riskScore: 45 },
+      { name: 'TTM Technologies', country: 'Germany', leadTime: '14 wks', capacity: 'Full', riskScore: 28 },
+      { name: 'Corevo', country: 'Netherlands', leadTime: '8 wks', capacity: 'Partial', riskScore: 61 },
     ],
   },
   {
@@ -110,12 +172,32 @@ const SUPPLIERS: Supplier[] = [
     tier: 2,
     sector: 'Electronic Components',
     overallScore: 61,
+    trend: 'WORSENING',
+    revenueAtRiskLow: 12,
+    revenueAtRiskHigh: 22,
+    revenueBasis: 'Based on 14% spend share × 4-week disruption scenario',
+    daysToImpact: 45,
+    singleSource: false,
+    spendExposurePct: 14,
+    costToMitigate: 0.8,
+    costOfDisruption: 18,
+    substitutability: 55,
+    doNothingOutcome: 'CSRD non-compliance fines (~€4M) and EU customer audit failures. Q4 shipments to 2 EMEA OEMs at risk if Scope-3 disclosures remain incomplete.',
     lastUpdated: 'Apr 17, 2026',
     dimensions: [
-      { category: 'ESG', score: 68 },
-      { category: 'Financial', score: 55 },
-      { category: 'Geopolitical', score: 30 },
-      { category: 'Cyber', score: 25 },
+      { category: 'ESG', score: 68, headline: 'CSRD disclosure gap on Scope 3', detail: 'Missing supplier emissions data for 22% of upstream. EU regulator opened informal inquiry.', clockLink: 'Clock 5 · ESG / Regulatory' },
+      { category: 'Financial', score: 55, headline: 'Receivables aging up 18 days', detail: 'DSO crept from 47 → 65. Two customers in payment plan. EBITDA flat YoY.' },
+      { category: 'Geopolitical', score: 30, headline: 'EU stable; export-control monitoring on dual-use', detail: 'Eindhoven ops unaffected by Russia sanctions. ECCN review on 3 SKUs.' },
+      { category: 'Cyber', score: 25, headline: 'ISO 27001 current, no incidents', detail: 'Pen-test passed Jan 2026. MFA enforced.' },
+    ],
+    actions: [
+      { horizon: 'IMMEDIATE', title: 'Issue Scope-3 data request + audit hold', detail: 'Formal request via supplier portal. Pause new POs until response within 10 days.', owner: 'J. Müller · ESG', timeline: '10 days', effort: 'LOW', impact: 'MEDIUM' },
+      { horizon: '30 DAYS', title: 'Joint remediation plan for CSRD reporting', detail: 'Co-fund 3rd-party emissions assessment. Define milestone gates for Q3 disclosure.', owner: 'A. Novak · Compliance', timeline: '30 days', effort: 'MEDIUM', impact: 'HIGH' },
+      { horizon: 'STRATEGIC', title: 'Add EU back-up supplier (Murata DE)', detail: 'Qualify Murata Germany for the same SKU family to reduce single-country EMEA exposure.', owner: 'P. Larsson · Sourcing', timeline: '6 months', effort: 'MEDIUM', impact: 'MEDIUM' },
+    ],
+    alternatives: [
+      { name: 'Murata Germany', country: 'Germany', leadTime: '10 wks', capacity: 'Full', riskScore: 22 },
+      { name: 'Yageo', country: 'Taiwan', leadTime: '12 wks', capacity: 'Full', riskScore: 58 },
     ],
   },
   {
@@ -127,12 +209,32 @@ const SUPPLIERS: Supplier[] = [
     tier: 1,
     sector: 'Connectors',
     overallScore: 45,
+    trend: 'STABLE',
+    revenueAtRiskLow: 8,
+    revenueAtRiskHigh: 16,
+    revenueBasis: 'Based on 9% spend share × 3-week disruption scenario',
+    daysToImpact: 60,
+    singleSource: false,
+    spendExposurePct: 9,
+    costToMitigate: 0.4,
+    costOfDisruption: 12,
+    substitutability: 72,
+    doNothingOutcome: 'Tariff pass-through of ~6% on Mexico-origin assemblies. Modest margin compression, no production stoppage. ~$3M annualised cost.',
     lastUpdated: 'Apr 18, 2026',
     dimensions: [
-      { category: 'Geopolitical', score: 49 },
-      { category: 'Cyber', score: 41 },
-      { category: 'ESG', score: 38 },
-      { category: 'Financial', score: 32 },
+      { category: 'Geopolitical', score: 49, headline: 'USMCA review + tariff uncertainty', detail: 'Section 232 review on automotive electronics. CBP scrutiny on rules-of-origin paperwork increased.', clockLink: 'Clock 2 · Geopolitical' },
+      { category: 'Cyber', score: 41, headline: 'Phishing campaign against MX plants', detail: 'Industry-wide spike. Amphenol reports no compromise; user-awareness program rolled out.' },
+      { category: 'ESG', score: 38, headline: 'Water permit review pending', detail: 'Nuevo León drought regulations; new permit expected Q3.' },
+      { category: 'Financial', score: 32, headline: 'Strong balance sheet, A- rated', detail: 'No financial stress signals. Free cash flow up 9% YoY.' },
+    ],
+    actions: [
+      { horizon: 'IMMEDIATE', title: 'Pre-clear customs documentation', detail: 'Validate USMCA certificates of origin for top 12 SKUs. Pre-emptive broker review.', owner: 'D. Reyes · Trade', timeline: '7 days', effort: 'LOW', impact: 'MEDIUM' },
+      { horizon: '30 DAYS', title: 'Tariff scenario model + price-pass mechanism', detail: 'Quantify impact at 5/10/15% tariff bands. Pre-agree pass-through clauses with top 4 customers.', owner: 'K. Brown · Finance', timeline: '30 days', effort: 'MEDIUM', impact: 'HIGH' },
+      { horizon: 'STRATEGIC', title: 'Add US-domestic connector qualification', detail: 'Qualify Molex (US) for top-volume SKU. Hedge against deeper tariff regime.', owner: 'S. Patel · Sourcing', timeline: '6 months', effort: 'MEDIUM', impact: 'MEDIUM' },
+    ],
+    alternatives: [
+      { name: 'Molex', country: 'USA', leadTime: '8 wks', capacity: 'Full', riskScore: 24 },
+      { name: 'TE Connectivity', country: 'Switzerland', leadTime: '11 wks', capacity: 'Full', riskScore: 30 },
     ],
   },
   {
@@ -144,206 +246,146 @@ const SUPPLIERS: Supplier[] = [
     tier: 2,
     sector: 'PCB Manufacturer',
     overallScore: 28,
+    trend: 'IMPROVING',
+    revenueAtRiskLow: 3,
+    revenueAtRiskHigh: 7,
+    revenueBasis: 'Based on 6% spend share × 2-week disruption scenario',
+    daysToImpact: 120,
+    singleSource: false,
+    spendExposurePct: 6,
+    costToMitigate: 0.2,
+    costOfDisruption: 5,
+    substitutability: 85,
+    doNothingOutcome: 'Minor scheduling friction only. No production or revenue impact expected within 6 months. Status quo acceptable.',
     lastUpdated: 'Apr 16, 2026',
     dimensions: [
-      { category: 'Geopolitical', score: 22 },
-      { category: 'Cyber', score: 18 },
-      { category: 'ESG', score: 15 },
-      { category: 'Financial', score: 12 },
+      { category: 'Geopolitical', score: 22, headline: 'EU stable; energy costs normalised', detail: 'German industrial electricity prices down 14% YoY. No regulatory red flags.' },
+      { category: 'Cyber', score: 18, headline: 'NIS2 compliant, low threat surface', detail: 'Independent attestation Mar 2026. No incidents in trailing 12 months.' },
+      { category: 'ESG', score: 15, headline: 'Best-in-class disclosure', detail: 'Science-based targets validated. Renewables 78% of plant load.' },
+      { category: 'Financial', score: 12, headline: 'Investment grade, strong liquidity', detail: 'BBB+ rated. Net leverage 1.2x. Healthy backlog.' },
+    ],
+    actions: [
+      { horizon: '30 DAYS', title: 'Increase volume allocation', detail: 'Shift 5–10% of Winn volume to TTM Munich while qualifying new SKUs.', owner: 'M. Chen · Sourcing', timeline: '30 days', effort: 'LOW', impact: 'MEDIUM' },
+      { horizon: 'STRATEGIC', title: 'Pilot strategic partnership / JDA', detail: 'Joint development on next-gen HDI boards. 3-year framework agreement.', owner: 'L. Garcia · Strategy', timeline: '9 months', effort: 'MEDIUM', impact: 'HIGH' },
+    ],
+    alternatives: [
+      { name: 'AT&S', country: 'Austria', leadTime: '12 wks', capacity: 'Full', riskScore: 26 },
+      { name: 'Unimicron', country: 'Taiwan', leadTime: '10 wks', capacity: 'Full', riskScore: 62 },
     ],
   },
 ];
 
-// ── Sub-components ────────────────────────────────────────────────────
+// ── Small UI atoms ────────────────────────────────────────────────────
+const Badge: React.FC<{
+  color: string;
+  bg: string;
+  border: string;
+  children: React.ReactNode;
+  size?: 'sm' | 'md';
+}> = ({ color, bg, border, children, size = 'sm' }) => (
+  <span
+    style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: bg,
+      color,
+      border: `1px solid ${border}`,
+      borderRadius: 4,
+      padding: size === 'sm' ? '2px 7px' : '4px 10px',
+      fontSize: size === 'sm' ? '0.55rem' : '0.62rem',
+      fontWeight: 700,
+      letterSpacing: '0.08em',
+      whiteSpace: 'nowrap',
+    }}
+  >
+    {children}
+  </span>
+);
 
-/** Circular score ring */
-const ScoreRing: React.FC<{ score: number; size?: number }> = ({
-  score,
-  size = 56,
-}) => {
-  const p = riskProfile(score);
-  const strokeW = 5;
+const SectionLabel: React.FC<{ children: React.ReactNode; color?: string }> = ({
+  children,
+  color = '#3B82F6',
+}) => (
+  <div
+    style={{
+      color,
+      fontWeight: 700,
+      fontSize: '0.6rem',
+      letterSpacing: '0.14em',
+      marginBottom: 10,
+    }}
+  >
+    {children}
+  </div>
+);
+
+const Gauge: React.FC<{ score: number; label: string }> = ({ score, label }) => {
+  const p = riskProfile(100 - score);
+  const size = 64;
+  const strokeW = 6;
   const r = (size - strokeW * 2) / 2;
   const circ = 2 * Math.PI * r;
   const offset = circ * (1 - score / 100);
 
   return (
-    <div style={{ position: 'relative', width: size, height: size }}>
-      <svg
-        width={size}
-        height={size}
-        style={{ transform: 'rotate(-90deg)', display: 'block' }}
-      >
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          stroke="#1E2A3E"
-          strokeWidth={strokeW}
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          stroke={p.bar}
-          strokeWidth={strokeW}
-          strokeDasharray={circ}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          style={{ filter: `drop-shadow(0 0 4px ${p.glow})` }}
-        />
-      </svg>
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <span
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+        <svg width={size} height={size} style={{ transform: 'rotate(-90deg)', display: 'block' }}>
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#1E2A3E" strokeWidth={strokeW} />
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            fill="none"
+            stroke={p.bar}
+            strokeWidth={strokeW}
+            strokeDasharray={circ}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+            style={{ filter: `drop-shadow(0 0 4px ${p.glow})` }}
+          />
+        </svg>
+        <div
           style={{
-            color: p.text,
-            fontSize: size * 0.26,
-            fontWeight: 900,
-            lineHeight: 1,
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
-          {score}
-        </span>
+          <span style={{ color: p.text, fontSize: 16, fontWeight: 900, lineHeight: 1 }}>{score}</span>
+        </div>
+      </div>
+      <div>
+        <div
+          style={{
+            color: '#64748B',
+            fontSize: '0.55rem',
+            fontWeight: 700,
+            letterSpacing: '0.12em',
+            marginBottom: 3,
+          }}
+        >
+          {label}
+        </div>
+        <div style={{ color: '#CBD5E1', fontSize: '0.65rem' }}>
+          {score >= 70 ? 'Many alternatives' : score >= 40 ? 'Limited alternatives' : 'Few / no alternatives'}
+        </div>
       </div>
     </div>
   );
 };
 
-/** Revenue at Risk field — the key demo placeholder element */
-const RevenueAtRisk: React.FC<{ prominent?: boolean }> = ({
-  prominent = false,
-}) => (
-  <div
-    style={{
-      borderRadius: 8,
-      border: prominent
-        ? '1.5px solid rgba(251,191,36,0.4)'
-        : '1px solid rgba(251,191,36,0.2)',
-      backgroundColor: prominent
-        ? 'rgba(251,191,36,0.06)'
-        : 'rgba(251,191,36,0.04)',
-      padding: prominent ? '14px 18px' : '9px 12px',
-    }}
-  >
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-      }}
-    >
-      {/* Label */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        {/* Dollar icon */}
-        <div
-          style={{
-            width: prominent ? 28 : 20,
-            height: prominent ? 28 : 20,
-            borderRadius: 6,
-            backgroundColor: 'rgba(251,191,36,0.12)',
-            border: '1px solid rgba(251,191,36,0.3)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}
-        >
-          <svg
-            width={prominent ? 14 : 10}
-            height={prominent ? 14 : 10}
-            viewBox="0 0 14 14"
-            fill="none"
-          >
-            <path
-              d="M7 1v12M4.5 3.5C4.5 2.67 5.67 2 7 2s2.5.67 2.5 1.5S8.33 5 7 5s-2.5.67-2.5 1.5S5.67 8 7 8s2.5.67 2.5 1.5S8.33 11 7 11s-2.5-.67-2.5-1.5"
-              stroke="rgba(251,191,36,0.8)"
-              strokeWidth="1.2"
-              strokeLinecap="round"
-            />
-          </svg>
-        </div>
-        <span
-          style={{
-            color: 'rgba(251,191,36,0.85)',
-            fontWeight: 700,
-            fontSize: prominent ? '0.75rem' : '0.6rem',
-            letterSpacing: '0.1em',
-          }}
-        >
-          REVENUE AT RISK
-        </span>
-      </div>
-
-      {/* Value placeholder */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <span
-          style={{
-            color: '#4B5563',
-            fontWeight: 700,
-            fontSize: prominent ? '1rem' : '0.72rem',
-            fontFamily: 'monospace',
-          }}
-        >
-          —
-        </span>
-        <span
-          style={{
-            color: '#374151',
-            fontSize: prominent ? '0.7rem' : '0.58rem',
-            fontStyle: 'italic',
-          }}
-        >
-          (Data Pending)
-        </span>
-      </div>
-    </div>
-
-    {/* Explanation note — prominent only */}
-    {prominent && (
-      <div
-        style={{
-          marginTop: 10,
-          paddingTop: 10,
-          borderTop: '1px solid rgba(251,191,36,0.15)',
-          color: '#4B5563',
-          fontSize: '0.66rem',
-          lineHeight: 1.55,
-        }}
-      >
-        Revenue impact calculation requires{' '}
-        <span style={{ color: '#64748B', fontWeight: 500 }}>
-          bill of materials + COGS data
-        </span>{' '}
-        from customer.{' '}
-        <span style={{ color: '#374151' }}>
-          Placeholder shown for MVP1.
-        </span>
-      </div>
-    )}
-  </div>
-);
-
-/** Compact supplier list card */
+// ── Supplier card (left pane) ─────────────────────────────────────────
 const SupplierCard: React.FC<{
   supplier: Supplier;
   selected: boolean;
   onSelect: () => void;
 }> = ({ supplier, selected, onSelect }) => {
   const p = riskProfile(supplier.overallScore);
-  const topDims = [...supplier.dimensions]
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 2)
-    .filter((d) => d.score >= 40);
+  const t = TREND_STYLE[supplier.trend];
 
   return (
     <div
@@ -354,46 +396,21 @@ const SupplierCard: React.FC<{
         border: selected ? `1.5px solid ${p.border}` : '1px solid #2A2D3E',
         borderLeft: `3px solid ${p.bar}`,
         backgroundColor: selected ? 'rgba(30,58,95,0.25)' : '#1A1D2E',
-        padding: '14px 14px 14px 12px',
+        padding: '14px',
         transition: 'border-color 0.15s, background-color 0.15s',
       }}
     >
-      {/* Row 1: name + score */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          marginBottom: 8,
-        }}
-      >
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
         <div>
-          <div
-            style={{
-              color: '#E2E8F0',
-              fontWeight: 700,
-              fontSize: '0.92rem',
-              marginBottom: 3,
-            }}
-          >
+          <div style={{ color: '#E2E8F0', fontWeight: 700, fontSize: '0.95rem', marginBottom: 3 }}>
             {supplier.name}
           </div>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              flexWrap: 'wrap',
-            }}
-          >
-            <span style={{ color: '#4B5563', fontSize: '0.6rem' }}>
-              {supplier.city}, {supplier.country}
-            </span>
-            <span style={{ color: '#1E3A5F', fontSize: '0.6rem' }}>·</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <span style={{ color: '#94A3B8', fontSize: '0.62rem' }}>{supplier.country}</span>
             <span
               style={{
                 backgroundColor: 'rgba(30,58,95,0.4)',
-                color: '#4B5563',
+                color: '#94A3B8',
                 border: '1px solid #1E3A5F',
                 borderRadius: 4,
                 padding: '1px 6px',
@@ -404,61 +421,28 @@ const SupplierCard: React.FC<{
             >
               TIER {supplier.tier}
             </span>
-            <span style={{ color: '#374151', fontSize: '0.58rem' }}>
-              {supplier.sector}
-            </span>
           </div>
         </div>
-
-        {/* Score */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'flex-end',
-            gap: 2,
-            flexShrink: 0,
-            marginLeft: 8,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <span
               style={{
                 color: p.text,
                 fontWeight: 900,
-                fontSize: '1.2rem',
+                fontSize: '1.25rem',
                 fontVariantNumeric: 'tabular-nums',
               }}
             >
               {supplier.overallScore}
             </span>
-            <div
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                backgroundColor: p.bar,
-                boxShadow: `0 0 5px ${p.glow}`,
-                animation:
-                  p.level === 'CRITICAL' ? 'pulse 2s infinite' : 'none',
-              }}
-            />
+            <span style={{ color: t.color, fontSize: '0.7rem', fontWeight: 800 }}>{t.arrow}</span>
           </div>
-          <span
-            style={{
-              color: p.text,
-              fontWeight: 700,
-              fontSize: '0.52rem',
-              letterSpacing: '0.1em',
-              opacity: 0.85,
-            }}
-          >
+          <span style={{ color: p.text, fontWeight: 700, fontSize: '0.52rem', letterSpacing: '0.1em' }}>
             {p.level}
           </span>
         </div>
       </div>
 
-      {/* Mini risk bar */}
       <div
         style={{
           height: 4,
@@ -468,199 +452,548 @@ const SupplierCard: React.FC<{
           marginBottom: 10,
         }}
       >
-        <div
-          style={{
-            height: '100%',
-            width: `${supplier.overallScore}%`,
-            backgroundColor: p.bar,
-            borderRadius: 2,
-          }}
-        />
+        <div style={{ height: '100%', width: `${supplier.overallScore}%`, backgroundColor: p.bar }} />
       </div>
 
-      {/* Active risk badges */}
-      {topDims.length > 0 && (
-        <div
-          style={{
-            display: 'flex',
-            gap: 6,
-            flexWrap: 'wrap',
-            marginBottom: 10,
-          }}
-        >
-          {topDims.map((d) => {
-            const cs = CAT_STYLE[d.category];
-            return (
-              <span
-                key={d.category}
-                style={{
-                  backgroundColor: cs.bg,
-                  color: cs.color,
-                  border: `1px solid ${cs.border}`,
-                  borderRadius: 4,
-                  padding: '2px 8px',
-                  fontSize: '0.55rem',
-                  fontWeight: 700,
-                  letterSpacing: '0.07em',
-                }}
-              >
-                {d.category.toUpperCase()} {d.score}
-              </span>
-            );
-          })}
-        </div>
-      )}
+      <div style={{ marginBottom: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <Badge color={t.color} bg={t.bg} border={t.border}>
+          {t.arrow} {supplier.trend}
+        </Badge>
+        {supplier.singleSource && (
+          <Badge color="#F87171" bg="rgba(220,38,38,0.12)" border="rgba(220,38,38,0.35)">
+            SINGLE SOURCE
+          </Badge>
+        )}
+      </div>
 
-      {/* Revenue placeholder */}
-      <RevenueAtRisk prominent={false} />
-
-      {/* View details CTA */}
       <div
         style={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          marginTop: 10,
+          borderRadius: 8,
+          border: '1.5px solid rgba(251,191,36,0.4)',
+          backgroundColor: 'rgba(251,191,36,0.05)',
+          padding: '8px 10px',
+          marginBottom: 8,
         }}
       >
         <div
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-            color: selected ? '#60A5FA' : '#374151',
-            fontSize: '0.62rem',
-            fontWeight: 600,
-            letterSpacing: '0.06em',
-            transition: 'color 0.15s',
+            color: 'rgba(251,191,36,0.85)',
+            fontWeight: 700,
+            fontSize: '0.55rem',
+            letterSpacing: '0.1em',
+            marginBottom: 2,
           }}
         >
-          {selected ? 'VIEWING DETAILS' : 'VIEW DETAILS'}
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path
-              d="M4.5 3L7.5 6L4.5 9"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          REVENUE AT RISK
+        </div>
+        <div
+          style={{
+            color: '#FBBF24',
+            fontWeight: 800,
+            fontSize: '0.95rem',
+            fontVariantNumeric: 'tabular-nums',
+          }}
+        >
+          ${supplier.revenueAtRiskLow}M – ${supplier.revenueAtRiskHigh}M
         </div>
       </div>
-    </div>
-  );
-};
 
-/** Risk dimension row for detail panel */
-const DimensionBar: React.FC<{ dim: RiskDimension; rank: number }> = ({
-  dim,
-  rank,
-}) => {
-  const p = riskProfile(dim.score);
-  const cs = CAT_STYLE[dim.category];
-
-  return (
-    <div
-      style={{
-        borderRadius: 8,
-        border: `1px solid ${p.border}`,
-        backgroundColor: '#1A1D2E',
-        padding: '12px 14px',
-      }}
-    >
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginBottom: 8,
+          fontSize: '0.62rem',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {rank === 1 && (
-            <span
-              style={{
-                color: '#64748B',
-                fontSize: '0.5rem',
-                fontWeight: 700,
-                letterSpacing: '0.06em',
-              }}
-            >
-              TOP
-            </span>
-          )}
-          <span
-            style={{
-              backgroundColor: cs.bg,
-              color: cs.color,
-              border: `1px solid ${cs.border}`,
-              borderRadius: 4,
-              padding: '2px 8px',
-              fontSize: '0.58rem',
-              fontWeight: 700,
-              letterSpacing: '0.07em',
-            }}
-          >
-            {dim.category.toUpperCase()}
-          </span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-          <span
-            style={{
-              color: p.text,
-              fontWeight: 900,
-              fontSize: '1rem',
-              fontVariantNumeric: 'tabular-nums',
-            }}
-          >
-            {dim.score}
-          </span>
-          <span
-            style={{
-              color: p.text,
-              fontWeight: 700,
-              fontSize: '0.55rem',
-              letterSpacing: '0.09em',
-              opacity: 0.75,
-            }}
-          >
-            {p.level}
-          </span>
-        </div>
-      </div>
-      <div
-        style={{
-          height: 6,
-          borderRadius: 3,
-          overflow: 'hidden',
-          backgroundColor: 'rgba(30,58,95,0.4)',
-        }}
-      >
-        <div
+        <span style={{ color: '#64748B', fontWeight: 700, letterSpacing: '0.08em' }}>
+          TIME TO IMPACT
+        </span>
+        <span
           style={{
-            height: '100%',
-            width: `${dim.score}%`,
-            background: `linear-gradient(90deg, ${p.bar}BB, ${p.bar})`,
-            borderRadius: 3,
-            boxShadow: `0 0 6px ${p.glow}`,
-            transition: 'width 0.7s ease',
+            color:
+              supplier.daysToImpact <= 30 ? '#F87171' : supplier.daysToImpact <= 60 ? '#FBBF24' : '#4ADE80',
+            fontWeight: 800,
           }}
-        />
+        >
+          {supplier.daysToImpact} days
+        </span>
       </div>
     </div>
   );
 };
 
-/** Full supplier detail panel */
-const DetailPanel: React.FC<{
-  supplier: Supplier;
-  onBack: () => void;
-}> = ({ supplier, onBack }) => {
-  const p = riskProfile(supplier.overallScore);
+// ── Tab: Impact ───────────────────────────────────────────────────────
+const ImpactTab: React.FC<{ supplier: Supplier }> = ({ supplier }) => {
+  const maxBar = Math.max(supplier.costOfDisruption, supplier.costToMitigate);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div
+        style={{
+          borderRadius: 10,
+          border: '1.5px solid rgba(251,191,36,0.45)',
+          backgroundColor: 'rgba(251,191,36,0.06)',
+          padding: '18px 20px',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 10,
+            flexWrap: 'wrap',
+            gap: 8,
+          }}
+        >
+          <span style={{ color: '#FBBF24', fontWeight: 800, fontSize: '0.65rem', letterSpacing: '0.14em' }}>
+            REVENUE AT RISK
+          </span>
+          <span
+            style={{
+              color: '#FBBF24',
+              fontWeight: 900,
+              fontSize: '1.6rem',
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
+            ${supplier.revenueAtRiskLow}M – ${supplier.revenueAtRiskHigh}M
+          </span>
+        </div>
+        <div
+          style={{
+            color: '#CBD5E1',
+            fontSize: '0.68rem',
+            lineHeight: 1.6,
+            paddingTop: 10,
+            borderTop: '1px solid rgba(251,191,36,0.18)',
+          }}
+        >
+          <span style={{ color: 'rgba(251,191,36,0.85)', fontWeight: 700 }}>BASIS — </span>
+          {supplier.revenueBasis}
+        </div>
+      </div>
+
+      <div
+        style={{
+          borderRadius: 10,
+          border: '1px solid #2A2D3E',
+          backgroundColor: '#1A1D2E',
+          padding: '14px 18px',
+        }}
+      >
+        <SectionLabel>COST TO MITIGATE vs COST OF DISRUPTION</SectionLabel>
+        {[
+          { label: 'Cost to mitigate', val: supplier.costToMitigate, color: '#4ADE80', bar: '#16A34A' },
+          { label: 'Cost of disruption', val: supplier.costOfDisruption, color: '#F87171', bar: '#DC2626' },
+        ].map((row) => (
+          <div key={row.label} style={{ marginBottom: 10 }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontSize: '0.65rem',
+                marginBottom: 4,
+              }}
+            >
+              <span style={{ color: '#94A3B8' }}>{row.label}</span>
+              <span style={{ color: row.color, fontWeight: 800 }}>${row.val}M</span>
+            </div>
+            <div
+              style={{
+                height: 8,
+                borderRadius: 4,
+                overflow: 'hidden',
+                backgroundColor: 'rgba(30,58,95,0.4)',
+              }}
+            >
+              <div
+                style={{
+                  height: '100%',
+                  width: `${(row.val / maxBar) * 100}%`,
+                  backgroundColor: row.bar,
+                  transition: 'width 0.6s ease',
+                }}
+              />
+            </div>
+          </div>
+        ))}
+        <div
+          style={{
+            marginTop: 10,
+            paddingTop: 10,
+            borderTop: '1px solid #2A2D3E',
+            color: '#94A3B8',
+            fontSize: '0.65rem',
+          }}
+        >
+          Ratio:{' '}
+          <span style={{ color: '#4ADE80', fontWeight: 700 }}>
+            {(supplier.costOfDisruption / Math.max(supplier.costToMitigate, 0.01)).toFixed(1)}×
+          </span>{' '}
+          — mitigation is materially cheaper than absorbing the disruption.
+        </div>
+      </div>
+
+      <div
+        style={{
+          borderRadius: 10,
+          border: '1px solid #2A2D3E',
+          backgroundColor: '#1A1D2E',
+          padding: '14px 18px',
+        }}
+      >
+        <SectionLabel>SPEND EXPOSURE</SectionLabel>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div
+            style={{
+              color: '#E2E8F0',
+              fontWeight: 900,
+              fontSize: '2rem',
+              lineHeight: 1,
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
+            {supplier.spendExposurePct}%
+          </div>
+          <div style={{ flex: 1 }}>
+            <div
+              style={{
+                height: 10,
+                borderRadius: 5,
+                overflow: 'hidden',
+                backgroundColor: 'rgba(30,58,95,0.4)',
+                marginBottom: 4,
+              }}
+            >
+              <div
+                style={{
+                  height: '100%',
+                  width: `${supplier.spendExposurePct}%`,
+                  background: 'linear-gradient(90deg, rgba(251,191,36,0.7), #FBBF24)',
+                }}
+              />
+            </div>
+            <div style={{ color: '#94A3B8', fontSize: '0.62rem' }}>
+              Share of category spend concentrated with {supplier.name}.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {supplier.singleSource && (
+        <div
+          style={{
+            borderRadius: 10,
+            border: '1.5px solid rgba(220,38,38,0.45)',
+            backgroundColor: 'rgba(220,38,38,0.08)',
+            padding: '14px 18px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 12,
+          }}
+        >
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: '50%',
+              backgroundColor: 'rgba(220,38,38,0.2)',
+              border: '1px solid rgba(220,38,38,0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              color: '#F87171',
+              fontWeight: 900,
+              fontSize: '0.85rem',
+            }}
+          >
+            !
+          </div>
+          <div>
+            <div
+              style={{
+                color: '#F87171',
+                fontWeight: 800,
+                fontSize: '0.7rem',
+                letterSpacing: '0.1em',
+                marginBottom: 4,
+              }}
+            >
+              SINGLE-SOURCE SKU FAMILY
+            </div>
+            <div style={{ color: '#CBD5E1', fontSize: '0.68rem', lineHeight: 1.6 }}>
+              No qualified alternate currently exists for the affected SKU family. Any disruption flows
+              directly to production within{' '}
+              <span style={{ color: '#F87171', fontWeight: 700 }}>{supplier.daysToImpact} days</span>.
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── Tab: Root Cause ───────────────────────────────────────────────────
+const RootCauseTab: React.FC<{ supplier: Supplier }> = ({ supplier }) => {
   const sorted = [...supplier.dimensions].sort((a, b) => b.score - a.score);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {sorted.map((dim) => {
+        const p = riskProfile(dim.score);
+        const cs = CAT_STYLE[dim.category];
+        return (
+          <div
+            key={dim.category}
+            style={{
+              borderRadius: 10,
+              border: `1px solid ${p.border}`,
+              backgroundColor: '#1A1D2E',
+              padding: '14px 16px',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 8,
+                flexWrap: 'wrap',
+                gap: 6,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <Badge color={cs.color} bg={cs.bg} border={cs.border}>
+                  {dim.category.toUpperCase()}
+                </Badge>
+                {dim.clockLink && (
+                  <Badge color="#60A5FA" bg="rgba(59,130,246,0.12)" border="rgba(59,130,246,0.35)">
+                    ◷ {dim.clockLink}
+                  </Badge>
+                )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                <span
+                  style={{
+                    color: p.text,
+                    fontWeight: 900,
+                    fontSize: '1.1rem',
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
+                  {dim.score}
+                </span>
+                <span
+                  style={{
+                    color: p.text,
+                    fontWeight: 700,
+                    fontSize: '0.55rem',
+                    letterSpacing: '0.1em',
+                    opacity: 0.8,
+                  }}
+                >
+                  {p.level}
+                </span>
+              </div>
+            </div>
+            <div
+              style={{
+                height: 6,
+                borderRadius: 3,
+                overflow: 'hidden',
+                backgroundColor: 'rgba(30,58,95,0.4)',
+                marginBottom: 10,
+              }}
+            >
+              <div
+                style={{
+                  height: '100%',
+                  width: `${dim.score}%`,
+                  background: `linear-gradient(90deg, ${p.bar}BB, ${p.bar})`,
+                  boxShadow: `0 0 6px ${p.glow}`,
+                }}
+              />
+            </div>
+            <div style={{ color: '#E2E8F0', fontWeight: 700, fontSize: '0.78rem', marginBottom: 4 }}>
+              {dim.headline}
+            </div>
+            <div style={{ color: '#94A3B8', fontSize: '0.68rem', lineHeight: 1.6 }}>{dim.detail}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// ── Tab: Mitigate ─────────────────────────────────────────────────────
+const MitigateTab: React.FC<{ supplier: Supplier }> = ({ supplier }) => {
+  const groups: Horizon[] = ['IMMEDIATE', '30 DAYS', 'STRATEGIC'];
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      {groups.map((h) => {
+        const items = supplier.actions.filter((a) => a.horizon === h);
+        if (items.length === 0) return null;
+        const hs = HORIZON_STYLE[h];
+        return (
+          <div key={h}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <Badge color={hs.color} bg={hs.bg} border={hs.border} size="md">
+                {h}
+              </Badge>
+              <span style={{ color: '#64748B', fontSize: '0.62rem' }}>
+                {items.length} action{items.length > 1 ? 's' : ''}
+              </span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {items.map((a, i) => {
+                const es = effortImpactStyle(a.effort);
+                const is = effortImpactStyle(a.impact);
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      borderRadius: 10,
+                      border: '1px solid #2A2D3E',
+                      borderLeft: `3px solid ${hs.color}`,
+                      backgroundColor: '#1A1D2E',
+                      padding: '12px 14px',
+                    }}
+                  >
+                    <div style={{ color: '#E2E8F0', fontWeight: 700, fontSize: '0.8rem', marginBottom: 4 }}>
+                      {a.title}
+                    </div>
+                    <div
+                      style={{
+                        color: '#94A3B8',
+                        fontSize: '0.66rem',
+                        lineHeight: 1.55,
+                        marginBottom: 10,
+                      }}
+                    >
+                      {a.detail}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+                      <Badge color={es.color} bg={es.bg} border={es.border}>
+                        EFFORT · {a.effort}
+                      </Badge>
+                      <Badge color={is.color} bg={is.bg} border={is.border}>
+                        IMPACT · {a.impact}
+                      </Badge>
+                      <span style={{ color: '#64748B', fontSize: '0.6rem' }}>·</span>
+                      <span style={{ color: '#CBD5E1', fontSize: '0.62rem' }}>{a.owner}</span>
+                      <span style={{ color: '#64748B', fontSize: '0.6rem' }}>·</span>
+                      <span style={{ color: '#94A3B8', fontSize: '0.62rem' }}>{a.timeline}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+
+      <div
+        style={{
+          borderRadius: 10,
+          border: '1px solid #2A2D3E',
+          backgroundColor: '#1A1D2E',
+          padding: '14px 16px',
+        }}
+      >
+        <SectionLabel>ALTERNATIVE SUPPLIERS</SectionLabel>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.66rem' }}>
+            <thead>
+              <tr style={{ color: '#64748B', textAlign: 'left' }}>
+                {['Supplier', 'Country', 'Lead Time', 'Capacity', 'Risk'].map((h) => (
+                  <th
+                    key={h}
+                    style={{
+                      padding: '6px 8px',
+                      borderBottom: '1px solid #2A2D3E',
+                      fontWeight: 700,
+                      letterSpacing: '0.08em',
+                      fontSize: '0.55rem',
+                    }}
+                  >
+                    {h.toUpperCase()}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {supplier.alternatives.map((alt, i) => {
+                const ap = riskProfile(alt.riskScore);
+                return (
+                  <tr key={i}>
+                    <td style={{ padding: '8px', color: '#E2E8F0', fontWeight: 600 }}>{alt.name}</td>
+                    <td style={{ padding: '8px', color: '#94A3B8' }}>{alt.country}</td>
+                    <td style={{ padding: '8px', color: '#CBD5E1' }}>{alt.leadTime}</td>
+                    <td style={{ padding: '8px', color: '#CBD5E1' }}>{alt.capacity}</td>
+                    <td style={{ padding: '8px' }}>
+                      <span style={{ color: ap.text, fontWeight: 800 }}>{alt.riskScore}</span>
+                      <span
+                        style={{
+                          color: ap.text,
+                          fontSize: '0.5rem',
+                          marginLeft: 4,
+                          letterSpacing: '0.08em',
+                        }}
+                      >
+                        {ap.level}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div
+        style={{
+          borderRadius: 10,
+          border: '1.5px solid rgba(220,38,38,0.5)',
+          backgroundColor: 'rgba(220,38,38,0.08)',
+          padding: '14px 18px',
+        }}
+      >
+        <div
+          style={{
+            color: '#F87171',
+            fontWeight: 800,
+            fontSize: '0.7rem',
+            letterSpacing: '0.14em',
+            marginBottom: 8,
+          }}
+        >
+          IF WE DO NOTHING
+        </div>
+        <div style={{ color: '#FECACA', fontSize: '0.72rem', lineHeight: 1.6 }}>
+          {supplier.doNothingOutcome}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Detail Panel ──────────────────────────────────────────────────────
+type TabKey = 'impact' | 'root' | 'mitigate';
+const TABS: { id: TabKey; label: string }[] = [
+  { id: 'impact', label: 'IMPACT' },
+  { id: 'root', label: 'ROOT CAUSE' },
+  { id: 'mitigate', label: 'MITIGATE' },
+];
+
+const DetailPanel: React.FC<{ supplier: Supplier; onBack: () => void }> = ({ supplier, onBack }) => {
+  const [tab, setTab] = useState<TabKey>('impact');
+  const p = riskProfile(supplier.overallScore);
+  const t = TREND_STYLE[supplier.trend];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Detail header */}
       <div
         style={{
           flexShrink: 0,
@@ -669,378 +1002,150 @@ const DetailPanel: React.FC<{
           padding: '16px 24px',
         }}
       >
-        {/* Breadcrumb */}
-        <div
+        <button
+          onClick={onBack}
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 6,
+            gap: 4,
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: '#94A3B8',
+            fontSize: '0.65rem',
+            fontWeight: 600,
+            padding: 0,
             marginBottom: 12,
           }}
         >
-          <button
-            onClick={onBack}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: '#4B5563',
-              fontSize: '0.65rem',
-              fontWeight: 600,
-              padding: 0,
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path
-                d="M9 11L5 7L9 3"
-                stroke="#4B5563"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            All Suppliers
-          </button>
-          <span style={{ color: '#1E3A5F', fontSize: '0.6rem' }}>/</span>
-          <span
-            style={{ color: '#64748B', fontSize: '0.65rem', fontWeight: 600 }}
-          >
-            {supplier.name}
-          </span>
-        </div>
-
+          ◀ All Suppliers
+        </button>
         <div
           style={{
             display: 'flex',
-            alignItems: 'flex-start',
             justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            gap: 16,
+            flexWrap: 'wrap',
           }}
         >
           <div>
             <h2
               style={{
                 color: '#E2E8F0',
-                fontSize: '1.4rem',
+                fontSize: '1.5rem',
                 fontWeight: 900,
                 letterSpacing: '-0.01em',
-                marginBottom: 6,
+                marginBottom: 4,
               }}
             >
               {supplier.name}
             </h2>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                flexWrap: 'wrap',
-              }}
-            >
-              {[
-                supplier.city + ', ' + supplier.country,
-                supplier.region,
-                `Tier ${supplier.tier}`,
-                supplier.sector,
-              ].map((item, i) => (
-                <React.Fragment key={i}>
-                  {i > 0 && (
-                    <span style={{ color: '#1E3A5F', fontSize: '0.65rem' }}>
-                      ·
-                    </span>
-                  )}
-                  <span
-                    style={{
-                      color:
-                        item.startsWith('Tier') ? '#64748B' : '#4B5563',
-                      fontSize: '0.7rem',
-                      fontWeight: item.startsWith('Tier') ? 700 : 400,
-                    }}
-                  >
-                    {item}
-                  </span>
-                </React.Fragment>
-              ))}
+            <div style={{ color: '#94A3B8', fontSize: '0.7rem', marginBottom: 8 }}>
+              {supplier.city}, {supplier.country} · {supplier.region} · Tier {supplier.tier} ·{' '}
+              {supplier.sector}
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <Badge color={t.color} bg={t.bg} border={t.border}>
+                {t.arrow} {supplier.trend}
+              </Badge>
+              <Badge
+                color={
+                  supplier.daysToImpact <= 30
+                    ? '#F87171'
+                    : supplier.daysToImpact <= 60
+                    ? '#FBBF24'
+                    : '#4ADE80'
+                }
+                bg="rgba(30,58,95,0.4)"
+                border="rgba(100,116,139,0.3)"
+              >
+                {supplier.daysToImpact}d TO IMPACT
+              </Badge>
+              {supplier.singleSource && (
+                <Badge color="#F87171" bg="rgba(220,38,38,0.12)" border="rgba(220,38,38,0.35)">
+                  SINGLE SOURCE
+                </Badge>
+              )}
             </div>
           </div>
-
-          {/* Score ring + level */}
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 4,
-            }}
-          >
-            <ScoreRing score={supplier.overallScore} size={68} />
-            <span
-              style={{
-                color: p.text,
-                fontWeight: 700,
-                fontSize: '0.6rem',
-                letterSpacing: '0.12em',
-              }}
-            >
-              {p.level}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Scrollable body */}
-      <div
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '20px 24px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 18,
-          scrollbarWidth: 'thin',
-          scrollbarColor: '#2A2D3E #0F1117',
-        }}
-      >
-        {/* Overall score bar */}
-        <div
-          style={{
-            borderRadius: 10,
-            border: `1.5px solid ${p.border}`,
-            backgroundColor: '#1A1D2E',
-            padding: '14px 18px',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: 10,
-            }}
-          >
-            <span
-              style={{
-                color: '#64748B',
-                fontWeight: 700,
-                fontSize: '0.62rem',
-                letterSpacing: '0.14em',
-              }}
-            >
-              OVERALL RISK SCORE
-            </span>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
               <span
                 style={{
                   color: p.text,
                   fontWeight: 900,
-                  fontSize: '1.5rem',
+                  fontSize: '2rem',
+                  lineHeight: 1,
                   fontVariantNumeric: 'tabular-nums',
                 }}
               >
                 {supplier.overallScore}
               </span>
-              <span style={{ color: '#374151', fontSize: '0.65rem' }}>
-                / 100
-              </span>
+              <span style={{ color: '#64748B', fontSize: '0.7rem' }}>/ 100</span>
             </div>
-          </div>
-          <div
-            style={{
-              height: 10,
-              borderRadius: 5,
-              overflow: 'hidden',
-              backgroundColor: 'rgba(30,58,95,0.4)',
-              marginBottom: 6,
-            }}
-          >
-            <div
+            <span
               style={{
-                height: '100%',
-                width: `${supplier.overallScore}%`,
-                background: `linear-gradient(90deg, ${p.bar}AA, ${p.bar})`,
-                boxShadow: `0 0 10px ${p.glow}`,
-                borderRadius: 5,
-                transition: 'width 0.8s ease',
-              }}
-            />
-          </div>
-          {/* Scale labels */}
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              fontSize: '0.53rem',
-            }}
-          >
-            <span style={{ color: '#4ADE80', fontWeight: 600 }}>
-              0 — LOW
-            </span>
-            <span style={{ color: '#FBBF24', fontWeight: 600 }}>
-              40 — MODERATE
-            </span>
-            <span style={{ color: '#F87171', fontWeight: 600 }}>
-              70 — CRITICAL
-            </span>
-          </div>
-        </div>
-
-        {/* ★ Revenue at Risk — prominent ★ */}
-        <RevenueAtRisk prominent={true} />
-
-        {/* Risk dimension breakdown */}
-        <div>
-          <div
-            style={{
-              color: '#3B82F6',
-              fontWeight: 700,
-              fontSize: '0.6rem',
-              letterSpacing: '0.14em',
-              marginBottom: 10,
-            }}
-          >
-            RISK DIMENSION BREAKDOWN
-          </div>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: 10,
-            }}
-          >
-            {sorted.map((dim, i) => (
-              <DimensionBar key={dim.category} dim={dim} rank={i + 1} />
-            ))}
-          </div>
-        </div>
-
-        {/* Supplier profile */}
-        <div
-          style={{
-            borderRadius: 10,
-            border: '1px solid #2A2D3E',
-            backgroundColor: '#1A1D2E',
-            padding: '14px 18px',
-          }}
-        >
-          <div
-            style={{
-              color: '#3B82F6',
-              fontWeight: 700,
-              fontSize: '0.6rem',
-              letterSpacing: '0.14em',
-              marginBottom: 12,
-            }}
-          >
-            SUPPLIER PROFILE
-          </div>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '10px 20px',
-            }}
-          >
-            {[
-              { label: 'LOCATION', value: `${supplier.city}, ${supplier.country}` },
-              { label: 'REGION', value: supplier.region },
-              { label: 'TIER', value: `Tier ${supplier.tier}` },
-              { label: 'SECTOR', value: supplier.sector },
-              { label: 'LAST UPDATED', value: supplier.lastUpdated },
-            ].map(({ label, value }) => (
-              <div key={label}>
-                <div
-                  style={{
-                    color: '#374151',
-                    fontSize: '0.55rem',
-                    fontWeight: 700,
-                    letterSpacing: '0.1em',
-                    marginBottom: 3,
-                  }}
-                >
-                  {label}
-                </div>
-                <div
-                  style={{
-                    color: '#CBD5E1',
-                    fontSize: '0.72rem',
-                    fontWeight: 500,
-                  }}
-                >
-                  {value}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Pending data callout */}
-        <div
-          style={{
-            borderRadius: 8,
-            border: '1px solid rgba(59,130,246,0.2)',
-            backgroundColor: 'rgba(30,58,95,0.15)',
-            padding: '12px 16px',
-            display: 'flex',
-            gap: 10,
-            alignItems: 'flex-start',
-          }}
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            style={{ flexShrink: 0, marginTop: 1 }}
-          >
-            <circle
-              cx="8"
-              cy="8"
-              r="7"
-              stroke="rgba(59,130,246,0.5)"
-              strokeWidth="1.2"
-            />
-            <line
-              x1="8"
-              y1="7"
-              x2="8"
-              y2="11"
-              stroke="rgba(59,130,246,0.7)"
-              strokeWidth="1.2"
-              strokeLinecap="round"
-            />
-            <circle cx="8" cy="5" r="0.8" fill="rgba(59,130,246,0.7)" />
-          </svg>
-          <div>
-            <div
-              style={{
-                color: '#3B82F6',
-                fontWeight: 700,
-                fontSize: '0.6rem',
-                letterSpacing: '0.08em',
-                marginBottom: 4,
+                color: p.text,
+                fontWeight: 800,
+                fontSize: '0.62rem',
+                letterSpacing: '0.14em',
               }}
             >
-              DATA INTEGRATION PENDING
-            </div>
-            <div
-              style={{
-                color: '#374151',
-                fontSize: '0.65rem',
-                lineHeight: 1.55,
-              }}
-            >
-              Revenue at Risk and financial exposure calculations will populate
-              once{' '}
-              <span style={{ color: '#4B5563', fontWeight: 500 }}>
-                BOM and COGS data
-              </span>{' '}
-              are ingested from your ERP system. All other risk signals are
-              live.
-            </div>
+              {p.level}
+            </span>
+            <Gauge score={supplier.substitutability} label="SUBSTITUTABILITY" />
           </div>
         </div>
+      </div>
+
+      <div
+        style={{
+          flexShrink: 0,
+          display: 'flex',
+          gap: 2,
+          padding: '0 24px',
+          backgroundColor: '#0A0C16',
+          borderBottom: '1px solid #1E3A5F',
+        }}
+      >
+        {TABS.map((tb) => {
+          const active = tab === tb.id;
+          return (
+            <button
+              key={tb.id}
+              onClick={() => setTab(tb.id)}
+              style={{
+                background: 'none',
+                border: 'none',
+                borderBottom: active ? '2px solid #3B82F6' : '2px solid transparent',
+                color: active ? '#60A5FA' : '#64748B',
+                padding: '12px 18px',
+                cursor: 'pointer',
+                fontSize: '0.7rem',
+                fontWeight: 800,
+                letterSpacing: '0.1em',
+                transition: 'color 0.15s, border-color 0.15s',
+              }}
+            >
+              {tb.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '20px 24px',
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#2A2D3E #0F1117',
+        }}
+      >
+        {tab === 'impact' && <ImpactTab supplier={supplier} />}
+        {tab === 'root' && <RootCauseTab supplier={supplier} />}
+        {tab === 'mitigate' && <MitigateTab supplier={supplier} />}
       </div>
     </div>
   );
@@ -1048,14 +1153,12 @@ const DetailPanel: React.FC<{
 
 // ── Main Export ───────────────────────────────────────────────────────
 const SupplierRiskMonitor: React.FC = () => {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>('winn');
   const selected = SUPPLIERS.find((s) => s.id === selectedId) ?? null;
 
   const counts = {
     critical: SUPPLIERS.filter((s) => s.overallScore >= 70).length,
-    moderate: SUPPLIERS.filter(
-      (s) => s.overallScore >= 40 && s.overallScore < 70,
-    ).length,
+    moderate: SUPPLIERS.filter((s) => s.overallScore >= 40 && s.overallScore < 70).length,
     low: SUPPLIERS.filter((s) => s.overallScore < 40).length,
   };
 
@@ -1068,7 +1171,6 @@ const SupplierRiskMonitor: React.FC = () => {
         backgroundColor: '#0F1117',
       }}
     >
-      {/* Monitor sub-header */}
       <div
         style={{
           flexShrink: 0,
@@ -1076,9 +1178,10 @@ const SupplierRiskMonitor: React.FC = () => {
           borderBottom: '2px solid #1E3A5F',
           padding: '12px 24px',
           display: 'flex',
-          alignItems: 'center',
           justifyContent: 'space-between',
+          alignItems: 'center',
           gap: 20,
+          flexWrap: 'wrap',
         }}
       >
         <div>
@@ -1093,8 +1196,8 @@ const SupplierRiskMonitor: React.FC = () => {
           >
             SUPPLIER RISK MONITOR
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ color: '#374151', fontSize: '0.6rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ color: '#94A3B8', fontSize: '0.62rem' }}>
               {SUPPLIERS.length} monitored suppliers
             </span>
             {(
@@ -1102,117 +1205,45 @@ const SupplierRiskMonitor: React.FC = () => {
                 {
                   count: counts.critical,
                   label: 'CRITICAL',
-                  color: '#DC2626',
+                  color: '#F87171',
                   bg: 'rgba(220,38,38,0.12)',
                   border: 'rgba(220,38,38,0.3)',
                 },
                 {
                   count: counts.moderate,
                   label: 'MODERATE',
-                  color: '#D97706',
+                  color: '#FBBF24',
                   bg: 'rgba(217,119,6,0.12)',
                   border: 'rgba(217,119,6,0.3)',
                 },
                 {
                   count: counts.low,
                   label: 'LOW',
-                  color: '#16A34A',
+                  color: '#4ADE80',
                   bg: 'rgba(22,163,74,0.12)',
                   border: 'rgba(22,163,74,0.3)',
                 },
               ] as const
             ).map((s) => (
-              <div
-                key={s.label}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  backgroundColor: s.bg,
-                  border: `1px solid ${s.border}`,
-                  borderRadius: 6,
-                  padding: '3px 8px',
-                }}
-              >
-                <div
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: '50%',
-                    backgroundColor: s.color,
-                    boxShadow: `0 0 4px ${s.color}`,
-                  }}
-                />
-                <span
-                  style={{
-                    color: s.color,
-                    fontWeight: 700,
-                    fontSize: '0.58rem',
-                    letterSpacing: '0.06em',
-                  }}
-                >
-                  {s.count} {s.label}
-                </span>
-              </div>
+              <Badge key={s.label} color={s.color} bg={s.bg} border={s.border}>
+                {s.count} {s.label}
+              </Badge>
             ))}
-          </div>
-        </div>
-
-        {/* MVP1 / QSC demo badge */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            backgroundColor: 'rgba(30,58,95,0.25)',
-            border: '1px solid #1E3A5F',
-            borderRadius: 8,
-            padding: '8px 14px',
-          }}
-        >
-          <div
-            style={{
-              width: 7,
-              height: 7,
-              borderRadius: '50%',
-              backgroundColor: '#3B82F6',
-              animation: 'pulse 2s infinite',
-            }}
-          />
-          <div>
-            <div
-              style={{
-                color: '#3B82F6',
-                fontWeight: 700,
-                fontSize: '0.58rem',
-                letterSpacing: '0.1em',
-                marginBottom: 1,
-              }}
-            >
-              MVP1 · QSC DESIGN REVIEW
-            </div>
-            <div style={{ color: '#374151', fontSize: '0.52rem' }}>
-              MRO Show · April 21, 2026 · Revenue field: placeholder
-            </div>
           </div>
         </div>
       </div>
 
-      {/* Two-column body */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* Supplier list */}
         <div
           style={{
-            width: selected ? 340 : '100%',
-            maxWidth: selected ? 340 : 720,
-            margin: selected ? 0 : '0 auto',
+            width: 320,
             flexShrink: 0,
             overflowY: 'auto',
-            padding: '16px',
+            padding: 16,
             display: 'flex',
             flexDirection: 'column',
             gap: 12,
-            borderRight: selected ? '1px solid #1E3A5F' : 'none',
+            borderRight: '1px solid #1E3A5F',
             scrollbarWidth: 'thin',
             scrollbarColor: '#2A2D3E #0F1117',
           }}
@@ -1222,88 +1253,27 @@ const SupplierRiskMonitor: React.FC = () => {
               key={s.id}
               supplier={s}
               selected={selectedId === s.id}
-              onSelect={() =>
-                setSelectedId((prev) => (prev === s.id ? null : s.id))
-              }
+              onSelect={() => setSelectedId(s.id)}
             />
           ))}
         </div>
 
-        {/* Detail panel */}
         {selected ? (
           <div style={{ flex: 1, overflow: 'hidden' }}>
-            <DetailPanel
-              supplier={selected}
-              onBack={() => setSelectedId(null)}
-            />
+            <DetailPanel supplier={selected} onBack={() => setSelectedId(null)} />
           </div>
         ) : (
-          /* Empty state */
           <div
             style={{
               flex: 1,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              borderLeft: '1px solid #151820',
+              color: '#374151',
+              fontSize: '0.75rem',
             }}
           >
-            <div style={{ textAlign: 'center', maxWidth: 260 }}>
-              <div
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: '50%',
-                  backgroundColor: 'rgba(30,58,95,0.25)',
-                  border: '1px solid #1E3A5F',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  margin: '0 auto 14px',
-                }}
-              >
-                <svg
-                  width="22"
-                  height="22"
-                  viewBox="0 0 22 22"
-                  fill="none"
-                >
-                  <circle
-                    cx="11"
-                    cy="11"
-                    r="9"
-                    stroke="#1E3A5F"
-                    strokeWidth="1.5"
-                  />
-                  <path
-                    d="M8 11h6M11 8v6"
-                    stroke="#1E3A5F"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </div>
-              <div
-                style={{
-                  color: '#374151',
-                  fontWeight: 600,
-                  fontSize: '0.8rem',
-                  marginBottom: 6,
-                }}
-              >
-                Select a supplier
-              </div>
-              <div
-                style={{
-                  color: '#1E2A3A',
-                  fontSize: '0.65rem',
-                  lineHeight: 1.55,
-                }}
-              >
-                Click any card to view the full risk breakdown, dimension
-                scores, and data status
-              </div>
-            </div>
+            Select a supplier to view details
           </div>
         )}
       </div>
